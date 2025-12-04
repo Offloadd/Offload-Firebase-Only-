@@ -1,1371 +1,27 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Offload: A nervous system validation companion</title>
-    
-    <!-- Firebase SDK - Using v9.x for better compatibility -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    
-    <script>
-        // Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyA89BZxelKRoK64JnYtSdWUho2WUfWymII",
-            authDomain: "capacity-monitor.firebaseapp.com",
-            projectId: "capacity-monitor",
-            storageBucket: "capacity-monitor.firebasestorage.app",
-            messagingSenderId: "455641716280",
-            appId: "1:455641716280:web:5848888e290e47114c78cd",
-            measurementId: "G-CGR5R0D1SP"
-        };
-
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-
-        // Auth state listener
-        auth.onAuthStateChanged(user => {
-            if (user) {
-                document.getElementById('authContainer').style.display = 'none';
-                document.getElementById('app').style.display = 'block';
-                document.getElementById('logoutBtn').style.display = 'block';
-                document.getElementById('userEmail').textContent = user.email;
-                window.currentUser = user;
-                loadFromLocalStorage();
-                render();
-            } else {
-                document.getElementById('authContainer').style.display = 'block';
-                document.getElementById('app').style.display = 'none';
-                document.getElementById('logoutBtn').style.display = 'none';
-                window.currentUser = null;
-            }
-        });
-    </script>
-    
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #f9fafb;
-            padding: 15px;
-        }
-        
-        /* Auth Styles */
-        .auth-container {
-            max-width: 400px;
-            margin: 100px auto;
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .auth-title {
-            font-size: 24px;
-            font-weight: 600;
-            margin-bottom: 20px;
-            text-align: center;
-            color: #111827;
-        }
-        .auth-input {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 12px;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            font-size: 14px;
-        }
-        .auth-btn {
-            width: 100%;
-            padding: 12px;
-            background: #3b82f6;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-bottom: 10px;
-        }
-        .auth-btn:hover {
-            background: #2563eb;
-        }
-        .auth-btn:disabled {
-            background: #9ca3af;
-            cursor: not-allowed;
-        }
-        .auth-message {
-            color: #dc2626;
-            font-size: 13px;
-            text-align: center;
-            margin-top: 10px;
-            padding: 8px;
-            background: #fee2e2;
-            border-radius: 4px;
-            display: none;
-        }
-        .auth-message.show {
-            display: block;
-        }
-        .auth-message.success {
-            color: #065f46;
-            background: #d1fae5;
-        }
-        #logoutBtn {
-            display: none;
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 8px 16px;
-            background: #dc2626;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            z-index: 1000;
-            font-weight: 600;
-        }
-        #logoutBtn:hover {
-            background: #991b1b;
-        }
-        .user-badge {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            padding: 8px 12px;
-            background: white;
-            border: 2px solid #3b82f6;
-            border-radius: 4px;
-            font-size: 13px;
-            color: #3b82f6;
-            font-weight: 600;
-            z-index: 1000;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        .container { max-width: 1000px; margin: 0 auto; }
-        .card { background: white; border-radius: 6px; padding: 18px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .header { border-left: 4px solid #3b82f6; padding-left: 15px; }
-        .section-blue { border-left: 4px solid #3b82f6; }
-        .section-purple { border-left: 4px solid #9333ea; }
-        h1 { font-size: 22px; margin-bottom: 6px; color: #111827; }
-        h2 { font-size: 18px; margin-bottom: 9px; color: #111827; }
-        .subtitle { color: #6b7280; font-size: 13px; margin-bottom: 12px; }
-        .slider-container { background: #f9fafb; padding: 6px; border-radius: 4px; margin-bottom: 5px; }
-        .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
-        .slider-label { font-weight: 600; color: #111827; font-size: 14px; }
-        .slider-value { font-size: 18px; font-weight: bold; }
-        input[type="range"] { 
-            width: 100%; 
-            height: 6px; 
-            border-radius: 3px; 
-            outline: none; 
-            -webkit-appearance: none;
-            cursor: pointer;
-        }
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #333;
-            cursor: pointer;
-            border: 2px solid white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-        input[type="range"]::-moz-range-thumb {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #333;
-            cursor: pointer;
-            border: 2px solid white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-        input[type="text"], input[type="email"], input[type="password"], textarea { 
-            width: 100%; 
-            padding: 8px; 
-            border: 1px solid #d1d5db; 
-            border-radius: 4px; 
-            font-size: 14px;
-            font-family: inherit;
-        }
-        textarea { min-height: 50px; resize: vertical; }
-        .input-label { font-size: 13px; font-weight: 600; color: #374151; margin-top: 6px; margin-bottom: 3px; display: block; }
-        .slider-labels { display: flex; justify-content: space-between; font-size: 10px; color: #6b7280; margin-bottom: 2px; }
-        .meta-layer { position: relative; height: 16px; margin-bottom: 4px; }
-        .meta-lines { position: absolute; top: 0; left: 0; right: 0; height: 100%; display: flex; }
-        .meta-line { position: absolute; top: 0; height: 100%; width: 1px; border-left: 2px dashed #9ca3af; }
-        .meta-line-left { left: 33.33%; }
-        .meta-line-right { left: 66.67%; }
-        .meta-labels { display: flex; justify-content: space-between; font-size: 9px; color: #6b7280; font-style: italic; padding: 0 2px; }
-        .meta-label { flex: 1; text-align: center; }
-        .life-areas-container { position: relative; }
-        .life-areas-dividers { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 1; }
-        .divider-line { position: absolute; top: 0; bottom: 0; width: 1px; border-left: 2px dashed #d1d5db; opacity: 0.6; }
-        .divider-left { left: 33.33%; }
-        .divider-right { left: 66.67%; }
-        .subtotal { background: #dbeafe; border: 2px solid #93c5fd; padding: 8px; border-radius: 4px; margin-top: 6px; }
-        .subtotal-text { font-size: 14px; font-weight: bold; color: #111827; }
-        .status-box { padding: 12px; border-radius: 6px; border: 2px solid; display: flex; align-items: center; gap: 8px; }
-        .status-icon { font-size: 20px; }
-        .btn { padding: 8px 14px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; }
-        .btn-success { background: #16a34a; color: white; width: 100%; padding: 10px; font-size: 15px; }
-        .btn-success:hover { background: #15803d; }
-        .btn-success:disabled { background: #d1d5db; cursor: not-allowed; }
-        
-        .visualization {
-            position: relative;
-            width: 100%;
-            height: 300px;
-            border: 2px solid #333;
-            border-radius: 5px;
-            overflow: hidden;
-            background: #44ff44;
-            transition: background-color 0.3s ease-out;
-        }
-
-        .color-legend {
-            position: absolute;
-            left: 10px;
-            top: 10px;
-            bottom: 10px;
-            width: 25px;
-            background: linear-gradient(to bottom,
-                #ff4444 0%,
-                #ffaa44 33%,
-                #4488ff 66%,
-                #44ff44 100%
-            );
-            border: 2px solid #333;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-            z-index: 9;
-        }
-
-        .zone-labels {
-            position: absolute;
-            left: 45px;
-            width: 180px;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-around;
-            pointer-events: none;
-            z-index: 10;
-        }
-
-        .zone-label {
-            color: white;
-            font-weight: bold;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-            font-size: 12px;
-            padding: 4px;
-            background: rgba(0,0,0,0.3);
-            border-radius: 3px;
-        }
-
-        .visualization svg {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-
-        .river-channel {
-            fill: rgba(135, 206, 250, 0.6);
-            stroke: #4682b4;
-            stroke-width: 2;
-            transition: d 0.3s ease-out;
-        }
-
-        .river-water {
-            fill: url(#waterGradient);
-            opacity: 0.8;
-            transition: d 0.3s ease-out;
-        }
-
-        .gate-top {
-            position: absolute;
-            left: 35%;
-            top: 0;
-            width: 100px;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            z-index: 5;
-            transform: translateX(-50%);
-        }
-
-        .gate-bottom {
-            position: absolute;
-            left: 35%;
-            bottom: 0;
-            width: 100px;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            z-index: 5;
-            transform: translateX(-50%);
-        }
-
-        .gate-shape-top {
-            width: 100%;
-            position: relative;
-            transition: height 0.3s ease-out;
-        }
-
-        .gate-shape-bottom {
-            width: 100%;
-            position: relative;
-            transition: height 0.3s ease-out;
-        }
-
-        .gate-interior-top {
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 60%;
-            height: 100%;
-            background: rgba(255, 100, 100, 0.3);
-            border-radius: 0 0 50% 50%;
-            z-index: 1;
-        }
-
-        .gate-interior-bottom {
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 60%;
-            height: 100%;
-            background: rgba(100, 255, 100, 0.3);
-            border-radius: 50% 50% 0 0;
-            z-index: 1;
-        }
-
-        .gate-outline-top {
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 100%;
-            height: 100%;
-            border: 4px solid #222;
-            border-top: none;
-            border-radius: 0 0 50% 50%;
-            background: transparent;
-            box-shadow: 0 0 15px rgba(0,0,0,0.4);
-            z-index: 2;
-        }
-
-        .gate-outline-bottom {
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 100%;
-            height: 100%;
-            border: 4px solid #222;
-            border-bottom: none;
-            border-radius: 50% 50% 0 0;
-            background: transparent;
-            box-shadow: 0 0 15px rgba(0,0,0,0.4);
-            z-index: 2;
-        }
-
-        .gate-text-top {
-            position: absolute;
-            left: 35%;
-            transform: translateX(-50%);
-            top: 0;
-            color: white;
-            font-weight: bold;
-            font-size: 13px;
-            text-align: center;
-            z-index: 6;
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
-            transition: top 0.3s ease-out;
-            pointer-events: none;
-        }
-
-        .gate-text-bottom {
-            position: absolute;
-            left: 35%;
-            transform: translateX(-50%);
-            bottom: 0;
-            color: white;
-            font-weight: bold;
-            font-size: 13px;
-            text-align: center;
-            z-index: 6;
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
-            transition: bottom 0.3s ease-out;
-            pointer-events: none;
-        }
-
-        .river-text {
-            position: absolute;
-            left: 45%;
-            right: auto;
-            width: 200px;
-            color: white;
-            font-weight: bold;
-            font-size: 14px;
-            text-align: center;
-            z-index: 6;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.9);
-            pointer-events: none;
-            transition: top 0.3s ease-out, font-size 0.3s ease-out, letter-spacing 0.3s ease-out;
-            transform: translateY(-50%);
-            white-space: normal;
-            line-height: 1.2;
-        }
-        
-        .neutral-list {
-            position: absolute;
-            left: 80%;
-            color: white;
-            font-size: 11px;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-            z-index: 6;
-            pointer-events: none;
-            transition: top 0.3s ease-out;
-            transform: translateY(-50%);
-            max-width: 250px;
-        }
-        
-        .neutral-item {
-            margin-bottom: 2px;
-            line-height: 1.3;
-        }
-
-        .ground-label {
-            position: absolute;
-            bottom: 8px;
-            left: 8px;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 3px;
-            font-size: 11px;
-            z-index: 15;
-        }
-        
-        .contributors-list {
-            position: absolute;
-            right: 40px;
-            color: white;
-            font-size: 11px;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-            z-index: 6;
-            pointer-events: none;
-            max-width: 300px;
-        }
-        
-        .contributors-threat {
-            top: 10px;
-        }
-        
-        .contributors-opportunity {
-            bottom: 10px;
-        }
-        
-        .contributor-item {
-            margin-bottom: 2px;
-            line-height: 1.3;
-        }
-        
-        .how-it-works { margin-top: 12px; }
-        .how-item { margin-bottom: 9px; color: #374151; font-size: 13px; }
-        .how-label { font-weight: 600; }
-        .examples-box { 
-            background: #f3f4f6; 
-            border: 2px solid #d1d5db; 
-            padding: 12px; 
-            border-radius: 6px; 
-            margin-bottom: 15px;
-        }
-        .examples-title { 
-            font-weight: 700; 
-            color: #111827; 
-            margin-bottom: 6px; 
-            font-size: 14px;
-        }
-        .examples-list { 
-            font-size: 13px; 
-            color: #374151; 
-            line-height: 1.5;
-        }
-        .entry-item {
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 6px;
-            padding: 12px;
-            margin-bottom: 12px;
-        }
-        .entry-timestamp {
-            font-size: 13px;
-            font-weight: 600;
-            color: #111827;
-            margin-bottom: 9px;
-            padding-bottom: 6px;
-            border-bottom: 2px solid #e5e7eb;
-        }
-        .entry-section {
-            margin-bottom: 9px;
-        }
-        .entry-section-title {
-            font-size: 12px;
-            font-weight: 700;
-            color: #6b7280;
-            text-transform: uppercase;
-            margin-bottom: 5px;
-        }
-        .entry-life-areas {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 5px;
-            font-size: 12px;
-            color: #374151;
-        }
-        .entry-ambient {
-            background: #f3f4f6;
-            padding: 8px;
-            border-radius: 5px;
-            margin-bottom: 6px;
-        }
-        .entry-ambient-header {
-            font-weight: 600;
-            color: #111827;
-            margin-bottom: 3px;
-            font-size: 13px;
-        }
-        .entry-ambient-note {
-            font-size: 12px;
-            color: #6b7280;
-            font-style: italic;
-            margin-top: 3px;
-        }
-        .entry-total {
-            background: #fee2e2;
-            padding: 9px;
-            border-radius: 5px;
-            text-align: center;
-            font-weight: bold;
-            color: #dc2626;
-            font-size: 15px;
-        }
-        .error-message {
-            background: #fee2e2;
-            border: 1px solid #fca5a5;
-            color: #991b1b;
-            padding: 10px;
-            border-radius: 5px;
-            margin-top: 9px;
-            font-size: 13px;
-        }
-    </style>
-</head>
-<body>
-    <div class="user-badge" id="userBadge" style="display: none;">
-        👤 <span id="userEmail"></span>
-    </div>
-    <button id="logoutBtn" onclick="handleLogout()">Logout</button>
-    
-    <div id="authContainer" class="auth-container">
-        <div class="auth-title">Offload</div>
-        <div class="subtitle" style="text-align: center; margin-bottom: 20px;">Sign in to save your data privately in your browser</div>
-        <div id="authMessage" class="auth-message"></div>
-        <input type="email" id="emailInput" class="auth-input" placeholder="Email" autocomplete="email">
-        <input type="password" id="passwordInput" class="auth-input" placeholder="Password (min 6 characters)" autocomplete="current-password">
-        <button class="auth-btn" id="signInBtn" onclick="handleSignIn()">Sign In</button>
-        <button class="auth-btn" id="createAccountBtn" onclick="handleCreateAccount()">Create Account</button>
-    </div>
-    
-    <div class="container" id="app" style="display: none;"></div>
-
-    <script>
-        const state = {
-            lifeAreas: { 
-                mental: 0,
-                spiritual: 0,
-                somaticBody: 0, 
-                emotional: 0, 
-                workMoney: 0,
-                moneyHandling: 0,
-                housingComforts: 0, 
-                freedomLevel: 0 
-            },
-            ambient: [
-                { value: 0, type: 'draining_positive', note: '' },
-                { value: 0, type: 'draining_positive', note: '' },
-                { value: 0, type: 'draining_positive', note: '' }
-            ],
-            entries: [],
-            saveError: ''
-        };
-
-        // Auth functions
-        async function handleCreateAccount() {
-            const email = document.getElementById('emailInput').value;
-            const password = document.getElementById('passwordInput').value;
-            const authMessage = document.getElementById('authMessage');
-            const btn = document.getElementById('createAccountBtn');
-            
-            if (!email || !password) {
-                showAuthMessage('Please enter email and password', 'error');
-                return;
-            }
-            
-            if (password.length < 6) {
-                showAuthMessage('Password must be at least 6 characters', 'error');
-                return;
-            }
-            
-            btn.disabled = true;
-            btn.textContent = 'Creating Account...';
-            
-            try {
-                await auth.createUserWithEmailAndPassword(email, password);
-                showAuthMessage('Account created successfully!', 'success');
-            } catch (error) {
-                console.error('Create account error:', error);
-                showAuthMessage(getErrorMessage(error), 'error');
-                btn.disabled = false;
-                btn.textContent = 'Create Account';
-            }
-        }
-
-        async function handleSignIn() {
-            const email = document.getElementById('emailInput').value;
-            const password = document.getElementById('passwordInput').value;
-            const authMessage = document.getElementById('authMessage');
-            const btn = document.getElementById('signInBtn');
-            
-            if (!email || !password) {
-                showAuthMessage('Please enter email and password', 'error');
-                return;
-            }
-            
-            btn.disabled = true;
-            btn.textContent = 'Signing In...';
-            
-            try {
-                await auth.signInWithEmailAndPassword(email, password);
-            } catch (error) {
-                console.error('Sign in error:', error);
-                showAuthMessage(getErrorMessage(error), 'error');
-                btn.disabled = false;
-                btn.textContent = 'Sign In';
-            }
-        }
-
-        async function handleLogout() {
-            try {
-                await auth.signOut();
-                // Save to localStorage before logout
-                saveToLocalStorage();
-                // Reset state
-                state.entries = [];
-                state.lifeAreas = { 
-                    mental: 0, spiritual: 0, somaticBody: 0, emotional: 0, 
-                    workMoney: 0, moneyHandling: 0, housingComforts: 0, freedomLevel: 0 
-                };
-                state.ambient = [
-                    { value: 0, type: 'draining_positive', note: '' },
-                    { value: 0, type: 'draining_positive', note: '' },
-                    { value: 0, type: 'draining_positive', note: '' }
-                ];
-            } catch (error) {
-                console.error('Logout error:', error);
-                alert('Error logging out: ' + error.message);
-            }
-        }
-
-        function showAuthMessage(message, type) {
-            const authMessage = document.getElementById('authMessage');
-            authMessage.textContent = message;
-            authMessage.className = 'auth-message show ' + (type === 'success' ? 'success' : '');
-        }
-
-        function getErrorMessage(error) {
-            const errorMessages = {
-                'auth/email-already-in-use': 'This email is already registered. Try signing in instead.',
-                'auth/invalid-email': 'Please enter a valid email address.',
-                'auth/operation-not-allowed': 'Email/password accounts are not enabled. Please contact support.',
-                'auth/weak-password': 'Password should be at least 6 characters.',
-                'auth/user-disabled': 'This account has been disabled.',
-                'auth/user-not-found': 'No account found with this email.',
-                'auth/wrong-password': 'Incorrect password.',
-                'auth/invalid-credential': 'Invalid email or password.',
-                'auth/too-many-requests': 'Too many failed attempts. Please try again later.'
-            };
-            
-            return errorMessages[error.code] || error.message;
-        }
-
-        // LocalStorage functions (for browser-based persistence)
-        function saveToLocalStorage() {
-            const user = window.currentUser;
-            if (!user) return;
-            
-            const userKey = 'offload_' + user.uid;
-            localStorage.setItem(userKey, JSON.stringify(state.entries));
-            console.log('Saved to localStorage');
-        }
-
-        function loadFromLocalStorage() {
-            const user = window.currentUser;
-            if (!user) return;
-            
-            const userKey = 'offload_' + user.uid;
-            const saved = localStorage.getItem(userKey);
-            if (saved) {
-                try {
-                    state.entries = JSON.parse(saved);
-                    console.log('Loaded', state.entries.length, 'entries from localStorage');
-                } catch (e) {
-                    console.error('Error loading from localStorage:', e);
-                }
-            }
-        }
-
-        function getSliderColor(value) {
-            if (value > 0) {
-                const intensity = value / 5;
-                const red = Math.round(100 - (100 * intensity));
-                const green = Math.round(220 + (35 * intensity));
-                const blue = Math.round(100 - (100 * intensity));
-                return `rgb(${red}, ${green}, ${blue})`;
-            } else if (value < 0) {
-                const absValue = Math.abs(value);
-                if (absValue <= 1.5) {
-                    const intensity = absValue / 1.5;
-                    const red = Math.round(68 + (200 * intensity));
-                    const green = Math.round(136 + (100 * intensity));
-                    const blue = Math.round(255 - (155 * intensity));
-                    return `rgb(${Math.min(red, 255)}, ${Math.min(green, 255)}, ${blue})`;
-                } else {
-                    const intensity = (absValue - 1.5) / 3.5;
-                    const red = 255;
-                    const green = Math.round(236 - (136 * intensity));
-                    const blue = Math.round(100 - (100 * intensity));
-                    return `rgb(${red}, ${green}, ${blue})`;
-                }
-            } else {
-                return 'rgb(68, 136, 255)';
-            }
-        }
-
-        function getTotal() {
-            const lifeTotal = -Object.values(state.lifeAreas).reduce((sum, val) => sum + val, 0);
-            
-            let ambientContribution = 0;
-            state.ambient.forEach(amb => {
-                if (amb.value !== 0) {
-                    if (amb.type === 'draining_positive' || amb.type === 'draining_negative') {
-                        ambientContribution -= amb.value;
-                    } else if (amb.type === 'expansive_positive') {
-                        ambientContribution += amb.value;
-                    }
-                }
-            });
-            
-            return lifeTotal + ambientContribution;
-        }
-
-        function getThreatLoad() {
-            let threatTotal = 0;
-            
-            Object.values(state.lifeAreas).forEach(val => {
-                if (val > 0) {
-                    threatTotal += val;
-                }
-            });
-            
-            state.ambient.forEach(amb => {
-                if (amb.value !== 0 && (amb.type === 'draining_positive' || amb.type === 'draining_negative')) {
-                    threatTotal += amb.value;
-                }
-            });
-            
-            return threatTotal;
-        }
-
-        function getOpportunityLoad() {
-            let opportunityTotal = 0;
-            
-            Object.values(state.lifeAreas).forEach(val => {
-                if (val < 0) {
-                    opportunityTotal += Math.abs(val);
-                }
-            });
-            
-            state.ambient.forEach(amb => {
-                if (amb.value !== 0 && (amb.type === 'expansive_positive' || amb.type === 'productive_negative')) {
-                    opportunityTotal += amb.value;
-                }
-            });
-            
-            return opportunityTotal;
-        }
-
-        function getNeutralCount() {
-            return Object.values(state.lifeAreas).filter(val => val === 0).length;
-        }
-
-        function getPercentage() {
-            const total = getTotal();
-            const normalized = (-total + 10) / 40;
-            return Math.round(Math.max(0, Math.min(100, normalized * 100)));
-        }
-
-        function getStatus() {
-            const pct = getPercentage();
-            if (pct >= 90) return { icon: '🚨', text: 'Critical load - system at capacity', color: '#fee2e2', border: '#fca5a5', textColor: '#991b1b' };
-            if (pct >= 75) return { icon: '⚠️', text: 'High load - approaching capacity', color: '#fed7aa', border: '#fb923c', textColor: '#9a3412' };
-            if (pct >= 50) return { icon: '⚡', text: 'Moderate load - monitoring needed', color: '#fef3c7', border: '#fcd34d', textColor: '#92400e' };
-            return { icon: '✓', text: 'Expanded Tolerance - recovering or possible engagement', color: '#d1fae5', border: '#6ee7b7', textColor: '#065f46' };
-        }
-
-        function updateSlider(category, key, value) {
-            if (category === 'life') state.lifeAreas[key] = parseInt(value);
-            render();
-        }
-
-        function updateAmbient(index, field, value) {
-            if (field === 'value') {
-                state.ambient[index].value = parseInt(value);
-            } else {
-                state.ambient[index][field] = value;
-            }
-            render();
-        }
-
-        function validateSave() {
-            const errors = [];
-            state.ambient.forEach((amb, i) => {
-                if (amb.value !== 0) {
-                    if (!amb.type) errors.push(`Internal Activity ${i+1}: Type is required when slider is not at 0`);
-                    if (!amb.note.trim()) errors.push(`Internal Activity ${i+1}: Note is required when slider is not at 0`);
-                }
-            });
-            return errors;
-        }
-
-        function saveEntry() {
-            const errors = validateSave();
-            if (errors.length > 0) {
-                state.saveError = errors.join('<br>');
-                render();
-                return;
-            }
-
-            state.saveError = '';
-            const lifeTotal = -Object.values(state.lifeAreas).reduce((sum, val) => sum + val, 0);
-            const threatLoad = getThreatLoad();
-            const opportunityLoad = getOpportunityLoad();
-            const neutralCount = getNeutralCount();
-            
-            const user = window.currentUser;
-            const entry = {
-                timestamp: new Date().toISOString(),
-                userEmail: user ? user.email : 'unknown',
-                lifeAreas: {...state.lifeAreas},
-                ambient: state.ambient.map(a => ({...a})),
-                lifeTotal,
-                total: getTotal(),
-                pct: getPercentage(),
-                threatLoad,
-                opportunityLoad,
-                neutralCount
-            };
-            
-            state.entries.unshift(entry);
-            
-            // Save to localStorage only
-            saveToLocalStorage();
-            
-            console.log('Entry saved to browser storage');
-            
-            render();
-        }
-
-        function copyEntries() {
-            // Create TSV header
-            const header = [
-                'Timestamp',
-                'User Email',
-                'Mental',
-                'Somatic/Body',
-                'Emotional',
-                'Housing/Comforts',
-                'Work/Money',
-                'Money/Resources',
-                'Personal Relations',
-                'Spiritual Outlook',
-                'Life Areas Net',
-                'Internal Experience 1',
-                'Internal Experience 2',
-                'Internal Experience 3',
-                'Threat Load',
-                'Opportunity Load',
-                'Neutral Count',
-                'Total Load',
-                'Percentage'
-            ].join('\t');
-            
-            // Create TSV rows
-            const rows = state.entries.map(e => {
-                const typeLabels = {
-                    'draining_positive': 'Positive/Draining',
-                    'expansive_positive': 'Positive/Expansive',
-                    'draining_negative': 'Negative/Draining',
-                    'productive_negative': 'Negative/Productive'
-                };
-                
-                // Format internal experiences
-                const ie1 = e.ambient[0].value !== 0 
-                    ? `${typeLabels[e.ambient[0].type]} [${e.ambient[0].value}/15]: ${e.ambient[0].note}`
-                    : '';
-                const ie2 = e.ambient[1].value !== 0 
-                    ? `${typeLabels[e.ambient[1].type]} [${e.ambient[1].value}/15]: ${e.ambient[1].note}`
-                    : '';
-                const ie3 = e.ambient[2].value !== 0 
-                    ? `${typeLabels[e.ambient[2].type]} [${e.ambient[2].value}/15]: ${e.ambient[2].note}`
-                    : '';
-                
-                return [
-                    new Date(e.timestamp).toLocaleString(),
-                    e.userEmail || 'unknown',
-                    -e.lifeAreas.mental,
-                    -e.lifeAreas.somaticBody,
-                    -e.lifeAreas.emotional,
-                    -e.lifeAreas.housingComforts,
-                    -e.lifeAreas.workMoney,
-                    -(e.lifeAreas.moneyHandling || 0),
-                    -e.lifeAreas.spiritual,
-                    -e.lifeAreas.freedomLevel,
-                    e.lifeTotal,
-                    ie1,
-                    ie2,
-                    ie3,
-                    e.threatLoad || 0,
-                    e.opportunityLoad || 0,
-                    e.neutralCount || 0,
-                    e.total,
-                    e.pct
-                ].join('\t');
-            });
-            
-            const tsv = header + '\n' + rows.join('\n');
-            navigator.clipboard.writeText(tsv);
-            alert('Entries copied as spreadsheet rows! Paste into Excel/Sheets.');
-        }
-
-        function clearEntries() {
-            if (confirm('Clear all entries? This cannot be undone.')) {
-                state.entries = [];
-                saveToLocalStorage();
-                render();
-            }
-        }
-
-        function deleteEntry(index) {
-            if (confirm('Delete this entry? This cannot be undone.')) {
-                state.entries.splice(index, 1);
-                saveToLocalStorage();
-                render();
-            }
-        }
-
-        function updateVisualization(threatLoad, opportunityLoad, neutralCount) {
-            const visualization = document.getElementById('visualization');
-            if (!visualization) return;
-            
-            const gateShapeTop = document.getElementById('gateShapeTop');
-            const gateShapeBottom = document.getElementById('gateShapeBottom');
-            const gateTextTop = document.getElementById('gateTextTop');
-            const gateTextBottom = document.getElementById('gateTextBottom');
-            const riverChannel = document.getElementById('riverChannel');
-            const riverWater = document.getElementById('riverWater');
-            const riverText = document.getElementById('riverText');
-            
-            const height = 300;
-            const maxLoad = 50;
-            
-            let topGateHeight = Math.min((threatLoad / maxLoad) * height * 1.8, height * 0.9);
-            let bottomGateHeight = Math.min((opportunityLoad / maxLoad) * height * 1.8, height * 0.9);
-            
-            const combinedHeight = topGateHeight + bottomGateHeight;
-            const maxCombined = height * 0.9;
-            
-            if (combinedHeight > maxCombined) {
-                const scaleFactor = maxCombined / combinedHeight;
-                topGateHeight = topGateHeight * scaleFactor;
-                bottomGateHeight = bottomGateHeight * scaleFactor;
-            }
-            
-            gateShapeTop.style.height = topGateHeight + 'px';
-            gateShapeBottom.style.height = bottomGateHeight + 'px';
-            
-            gateTextTop.style.top = topGateHeight + 'px';
-            gateTextTop.textContent = 'THREAT\n' + threatLoad;
-            
-            gateTextBottom.style.bottom = bottomGateHeight + 'px';
-            gateTextBottom.textContent = 'OPPORTUNITY\n' + opportunityLoad;
-            
-            const availableSpace = height - topGateHeight - bottomGateHeight;
-            const topGateFactor = topGateHeight / height;
-            const bottomGateFactor = bottomGateHeight / height;
-            
-            let r, g, b;
-            
-            if (topGateFactor > bottomGateFactor) {
-                const threatIntensity = topGateFactor * 2.2;
-                if (threatIntensity < 0.5) {
-                    const factor = threatIntensity * 2;
-                    r = Math.round(68 + (187 * factor));
-                    g = Math.round(136 + (100 * factor));
-                    b = Math.round(255 - (155 * factor));
-                } else {
-                    const factor = (threatIntensity - 0.5) * 2;
-                    r = 255;
-                    g = Math.round(236 - (136 * factor));
-                    b = Math.round(100 - (100 * factor));
-                }
-            } else if (bottomGateFactor > topGateFactor) {
-                const oppIntensity = bottomGateFactor * 2.2;
-                const factor = Math.min(oppIntensity, 1);
-                r = Math.round(68 - (0 * factor));
-                g = Math.round(136 + (119 * factor));
-                b = Math.round(255 - (187 * factor));
-            } else {
-                r = 68;
-                g = 136;
-                b = 255;
-            }
-            
-            visualization.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
-            
-            const width = 600;
-            const riverTop = topGateHeight;
-            const riverBottom = height - bottomGateHeight;
-            const riverHeight = riverBottom - riverTop;
-            
-            const spaceFactor = availableSpace / height;
-            const maxChannelWidth = height * 0.5;
-            const minChannelWidth = height * 0.08;
-            
-            let channelWidth = minChannelWidth + (spaceFactor * (maxChannelWidth - minChannelWidth));
-            channelWidth = Math.min(channelWidth, riverHeight * 0.9);
-            
-            const waterWidth = channelWidth * 0.85;
-            
-            const channelTopY = riverTop + Math.max(0, (riverHeight - channelWidth) / 2);
-            const channelBottomY = channelTopY + channelWidth;
-            
-            const channelPath = `M 0,${channelTopY} L ${width},${channelTopY} L ${width},${channelBottomY} L 0,${channelBottomY} Z`;
-            
-            const waterTopY = channelTopY + (channelWidth - waterWidth) / 2;
-            const waterBottomY = waterTopY + waterWidth;
-            const waterPath = `M 0,${waterTopY} L ${width},${waterTopY} L ${width},${waterBottomY} L 0,${waterBottomY} Z`;
-            
-            riverChannel.setAttribute('d', channelPath);
-            riverWater.setAttribute('d', waterPath);
-            
-            const centerY = topGateHeight + (availableSpace / 2);
-            riverText.style.top = centerY + 'px';
-            
-            const neutralList = document.getElementById('neutralList');
-            if (neutralList) {
-                neutralList.style.top = centerY + 'px';
-            }
-            
-            const availablePercent = availableSpace / height;
-            
-            if (availablePercent < 0.3) {
-                const fontSize = Math.max(8, availablePercent * 40);
-                const letterSpacing = Math.max(0, (0.3 - availablePercent) * 10);
-                riverText.style.fontSize = fontSize + 'px';
-                riverText.style.letterSpacing = letterSpacing + 'px';
-            } else {
-                riverText.style.fontSize = '14px';
-                riverText.style.letterSpacing = '0px';
-            }
-            
-            updateContributorLists();
-        }
-        
-        function updateContributorLists() {
-            const contributorsThreat = document.getElementById('contributorsThreat');
-            const contributorsOpportunity = document.getElementById('contributorsOpportunity');
-            const neutralList = document.getElementById('neutralList');
-            
-            if (!contributorsThreat || !contributorsOpportunity || !neutralList) return;
-            
-            const lifeAreasLabels = {
-                mental: 'Mental Activity',
-                somaticBody: 'Somatic &/or Body',
-                emotional: 'Emotional',
-                housingComforts: 'Housing & Creature Comforts',
-                workMoney: 'Work Experiences & Income Generation',
-                moneyHandling: 'Money & Resource Handling',
-                spiritual: 'Personal Relationships or Interactions',
-                freedomLevel: 'Spiritual Level Outlook'
-            };
-            
-            const typeLabels = {
-                'draining_positive': 'Positive/Draining',
-                'expansive_positive': 'Positive/Expansive',
-                'draining_negative': 'Negative/Draining',
-                'productive_negative': 'Negative/Productive'
-            };
-            
-            let threatItems = [];
-            let opportunityItems = [];
-            let neutralItems = [];
-            
-            Object.entries(state.lifeAreas).forEach(([key, value]) => {
-                if (value > 0) {
-                    threatItems.push({ label: lifeAreasLabels[key], value: value });
-                } else if (value < 0) {
-                    opportunityItems.push({ label: lifeAreasLabels[key], value: Math.abs(value) });
-                } else {
-                    neutralItems.push(lifeAreasLabels[key]);
-                }
-            });
-            
-            state.ambient.forEach((amb, i) => {
-                if (amb.value !== 0) {
-                    const typeLabel = typeLabels[amb.type] || amb.type;
-                    const label = `Internal Experience ${i+1} (${typeLabel})`;
-                    
-                    if (amb.type === 'draining_positive' || amb.type === 'draining_negative') {
-                        threatItems.push({ label: label, value: amb.value });
-                    } else if (amb.type === 'expansive_positive' || amb.type === 'productive_negative') {
-                        opportunityItems.push({ label: label, value: amb.value });
-                    }
-                }
-            });
-            
-            threatItems.sort((a, b) => b.value - a.value);
-            opportunityItems.sort((a, b) => b.value - a.value);
-            
-            contributorsThreat.innerHTML = threatItems.length > 0 
-                ? threatItems.map(item => `<div class="contributor-item">${item.label}: ${item.value}</div>`).join('')
-                : '';
-            
-            contributorsOpportunity.innerHTML = opportunityItems.length > 0
-                ? opportunityItems.map(item => `<div class="contributor-item">${item.label}: ${item.value}</div>`).join('')
-                : '';
-            
-            neutralList.innerHTML = neutralItems.length > 0
-                ? '<div style="font-weight: bold; margin-bottom: 3px;">Neutral (0):</div>' + 
-                  neutralItems.map(label => `<div class="neutral-item">• ${label}</div>`).join('')
-                : '';
-        }
-
-        function render() {
-            const user = window.currentUser;
-            if (user) {
-                document.getElementById('userBadge').style.display = 'block';
-            }
-
-            const total = getTotal();
-            const pct = getPercentage();
-            const status = getStatus();
-            const lifeTotal = -Object.values(state.lifeAreas).reduce((sum, val) => sum + val, 0);
-            
-            const threatLoad = getThreatLoad();
-            const opportunityLoad = getOpportunityLoad();
-            const neutralCount = getNeutralCount();
-
-            const lifeAreasConfig = [
-                { key: 'mental', label: 'Mental Activity' },
-                { key: 'somaticBody', label: 'Somatic &/or Body' },
-                { key: 'emotional', label: 'Emotional' },
-                { key: 'housingComforts', label: 'Housing & Creature Comforts' },
-                { key: 'workMoney', label: 'Work Experiences & Income Generation' },
-                { key: 'moneyHandling', label: 'Money & Resource Handling' },
-                { key: 'spiritual', label: 'Personal Relationships or Interactions' },
-                { key: 'freedomLevel', label: 'Spiritual Level Outlook' }
-            ];
-
-            const html = `
-                <div class="card header">
-                    <h1>Offload: A nervous system validation companion</h1>
-                    <div class="subtitle">(Based on Polyvagal Theory, Shadow Work, Window of Tolerance)<br><em style="font-size: 11px; color: #9333ea;">✓ Authenticated • Saves to Browser Storage</em></div>
-                </div>
-
-                <div class="card section-blue">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px;">
-                        <h2 style="margin: 0;">1. Current Life Areas</h2>
-                    </div>
-                    
-                    <div class="meta-layer">
-                        <div class="meta-labels">
-                            <div class="meta-label">Regulated Opportunity</div>
-                            <div class="meta-label">Neutral</div>
-                            <div class="meta-label">Dysregulated Threat</div>
-                        </div>
-                        <div class="meta-lines">
-                            <div class="meta-line meta-line-left"></div>
-                            <div class="meta-line meta-line-right"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="life-areas-container">
-                        <div class="life-areas-dividers">
-                            <div class="divider-line divider-left"></div>
-                            <div class="divider-line divider-right"></div>
-                        </div>
-                    
-                    ${lifeAreasConfig.map(({ key, label }) => {
-                        const isMental = key === 'mental';
-                        const isSomatic = key === 'somaticBody';
-                        const isHousing = key === 'housingComforts';
-                        const isWorkMoney = key === 'workMoney';
-                        const isMoneyHandling = key === 'moneyHandling';
-                        const isSpiritual = key === 'spiritual';
-                        const isFreedomLevel = key === 'freedomLevel';
-                        
-                        let positiveLabel, neutralLabel, negativeLabel;
-                        
-                        if (isMental) {
-                            positiveLabel = '+5 Creative, Pleasant';
-                            neutralLabel = '0 Self compassion';
-                            negativeLabel = '-5 Racing, Ruminating';
-                        } else if (isSomatic) {
-                            positiveLabel = '+5 Calm, relaxed';
-                            neutralLabel = '0 Tolerating discomfort';
-                            negativeLabel = '-5 Body aches/pains';
-                        } else if (isHousing) {
-                            positiveLabel = '+5 Enjoy comforts';
-                            neutralLabel = '0 Calm';
-                            negativeLabel = '-5 Project pressure';
-                        } else if (isWorkMoney) {
-                            positiveLabel = '+5 Enthusiasm';
-                            neutralLabel = '0 Willing to engage';
-                            negativeLabel = '-5 Pressure to perform';
-                        } else if (isMoneyHandling) {
-                            positiveLabel = '+5 Curious about finances';
-                            neutralLabel = '0 Not thinking about $';
-                            negativeLabel = '-5 Fear about finances';
-                        } else if (isSpiritual) {
-                            positiveLabel = '+5 Practice tolerance';
-                            neutralLabel = '0 Neutralize negatives';
-                            negativeLabel = '-5 Resentments, blaming';
-                        } else if (isFreedomLevel) {
-                            positiveLabel = '+5 Synchronicities';
-                            neutralLabel = '0 Neutral';
-                            negativeLabel = '-5 Unsupportive environment';
-                        } else {
-                            positiveLabel = '+5 Enthusiasm';
-                            neutralLabel = '0 Calm';
-                            negativeLabel = '-5 Fear/Anger';
-                        }
-                        
-                        return `
-                        <div class="slider-container">
-                            <div class="slider-header">
-                                <span class="slider-label">${label}</span>
-                                <span class="slider-value" style="color: ${getSliderColor(-state.lifeAreas[key])};">${-state.lifeAreas[key] > 0 ? '+' : ''}${-state.lifeAreas[key]}</span>
+                                    <button class="zone-toggle-btn" onclick="toggleZoneLabel('threat')">${state.zoneLabelsExpanded.threat ? '-' : '?'}</button>
+                                </div>
+                                <div class="zone-label-details">
+                                    Fear, anxiety, activated feelings, anger, hopelessness, powerlessness, threat of pain responses
+                                </div>
                             </div>
-                            <div class="slider-labels"><span>${positiveLabel}</span><span>${neutralLabel}</span><span>${negativeLabel}</span></div>
-                            <input type="range" min="-5" max="5" value="${state.lifeAreas[key]}" 
-                                   onchange="updateSlider('life', '${key}', this.value)"
-                                   style="background: linear-gradient(to right, #64ff64 0%, #4488ff 50%, #ffaa44 75%, #ff4444 100%);">
-                        </div>
-                    `;
-                    }).join('')}
-                    
-                    </div>
-                    
-                    <div class="subtotal">
-                        <div class="subtotal-text">Life Areas Net: ${lifeTotal}</div>
-                    </div>
-                </div>
-
-                <div class="card section-purple">
-                    <h2>2. Internal Experiences (0-15 each)</h2>
-                    <div class="subtitle"><em>Rate and describe internal activity</em></div>
-                    
-                    <div class="examples-box">
-                        <div class="examples-title">Examples:</div>
-                        <div class="examples-list">
-                            <strong>Positive:</strong> Joy, calm, contentment<br>
-                            <strong>Negative:</strong> Fear, anger, tension
-                        </div>
-                    </div>
-
-                    ${state.ambient.map((amb, i) => `
-                        <div class="slider-container">
-                            <div class="slider-header">
-                                <span class="slider-label">Internal Activity ${i+1}</span>
-                                <span class="slider-value" style="color: #9333ea;">${amb.value}</span>
+                            <div class="zone-label ${state.zoneLabelsExpanded.stable ? 'expanded' : ''}">
+                                <div class="zone-label-title">
+                                    <span>🔵 Regulated State</span>
+                                    <button class="zone-toggle-btn" onclick="toggleZoneLabel('stable')">${state.zoneLabelsExpanded.stable ? '-' : '?'}</button>
+                                </div>
+                                <div class="zone-label-details">
+                                    Grounded, calm, approachable, present
+                                </div>
                             </div>
-                            <input type="range" min="0" max="15" value="${amb.value}" 
-                                   onchange="updateAmbient(${i}, 'value', this.value)"
-                                   style="background: #d1d5db;">
-                            <div class="slider-labels"><span>0 Not present</span><span>15 Very present</span></div>
-                            
-                            ${amb.value !== 0 ? `
-                                <label class="input-label">Type:</label>
-                                <select onchange="updateAmbient(${i}, 'type', this.value)" 
-                                        style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 14px; margin-bottom: 6px;">
-                                    <option value="draining_positive" ${amb.type === 'draining_positive' ? 'selected' : ''}>Positive/Draining</option>
-                                    <option value="expansive_positive" ${amb.type === 'expansive_positive' ? 'selected' : ''}>Positive/Expansive</option>
-                                    <option value="draining_negative" ${amb.type === 'draining_negative' ? 'selected' : ''}>Negative/Draining</option>
-                                    <option value="productive_negative" ${amb.type === 'productive_negative' ? 'selected' : ''}>Negative/Returns</option>
-                                </select>
-                                
-                                <label class="input-label">Note:</label>
-                                <textarea onchange="updateAmbient(${i}, 'note', this.value)"
-                                          placeholder="Brief description...">${amb.note}</textarea>
-                            ` : ''}
-                        </div>
-                    `).join('')}
-                </div>
-
-                <div class="card" style="border: 2px solid #9333ea;">
-                    <h2>System Load Summary</h2>
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin: 12px 0;">
-                        <div style="background: #fee2e2; padding: 9px; border-radius: 5px; text-align: center;">
-                            <div style="font-size: 12px; color: #6b7280;">Threat</div>
-                            <div style="font-size: 28px; font-weight: bold; color: #dc2626;">${threatLoad}</div>
-                        </div>
-                        <div style="background: #dbeafe; padding: 9px; border-radius: 5px; text-align: center;">
-                            <div style="font-size: 12px; color: #6b7280;">Neutral</div>
-                            <div style="font-size: 28px; font-weight: bold; color: #3b82f6;">${neutralCount}</div>
-                        </div>
-                        <div style="background: #d1fae5; padding: 9px; border-radius: 5px; text-align: center;">
-                            <div style="font-size: 12px; color: #6b7280;">Opportunity</div>
-                            <div style="font-size: 28px; font-weight: bold; color: #16a34a;">${opportunityLoad}</div>
-                        </div>
-                    </div>
-                    <div class="status-box" style="background: ${status.color}; border-color: ${status.border}; color: ${status.textColor};">
-                        <span class="status-icon">${status.icon}</span>
-                        <span style="font-weight: 600;">${status.text}</span>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <h2>Window of Tolerance</h2>
-                    <div class="visualization" id="visualization">
-                        <div class="color-legend"></div>
-                        
-                        <div class="zone-labels">
-                            <div class="zone-label">Threat<br>(Dysregulated)</div>
-                            <div class="zone-label">Grounded<br>(Regulated)</div>
-                            <div class="zone-label">Opportunity<br>(Enthusiasm)</div>
+                            <div class="zone-label ${state.zoneLabelsExpanded.opportunity ? 'expanded' : ''}">
+                                <div class="zone-label-title">
+                                    <span>🟢 Opportunity Response</span>
+                                    <button class="zone-toggle-btn" onclick="toggleZoneLabel('opportunity')">${state.zoneLabelsExpanded.opportunity ? '-' : '?'}</button>
+                                </div>
+                                <div class="zone-label-details">
+                                    Enthusiasm, joy, sexual feelings, hunger, expansiveness, freedom feelings
+                                </div>
+                            </div>
                         </div>
 
                         <svg viewBox="0 0 600 300" preserveAspectRatio="none">
@@ -1395,53 +51,78 @@
 
                         <div class="gate-text-top" id="gateTextTop">THREAT<br>0</div>
                         <div class="gate-text-bottom" id="gateTextBottom">OPPORTUNITY<br>0</div>
-                        <div class="river-text" id="riverText">Window of Tolerance</div>
+                        <div class="river-text" id="riverText">Window of Tolerance Width<br>or Internal Information<br>Processing Capacity</div>
                         <div class="neutral-list" id="neutralList"></div>
                         
                         <div class="contributors-list contributors-threat" id="contributorsThreat"></div>
                         <div class="contributors-list contributors-opportunity" id="contributorsOpportunity"></div>
 
-                        <div class="ground-label">T: ${threatLoad} | N: ${neutralCount} | O: ${opportunityLoad}</div>
+                        <div class="ground-label">Window of Tolerance<br>Threat: ${threatLoad} | Neutral: ${neutralCount} | Opportunity: ${opportunityLoad}</div>
                     </div>
                 </div>
 
+                <div class="card" style="border: 2px solid #9333ea;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: ${state.systemLoadVisible ? '12px' : '0'};">
+                        <h2 style="margin: 0;">System Load Summary</h2>
+                        <button class="btn btn-toggle" onclick="toggleSystemLoadVisibility()">
+                            ${state.systemLoadVisible ? '▲ Collapse' : '▼ Expand'}
+                        </button>
+                    </div>
+                    
+                    ${state.systemLoadVisible ? `
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin: 12px 0;">
+                        <div style="background: #fee2e2; padding: 9px; border-radius: 5px; text-align: center;">
+                            <div style="font-size: 12px; color: #6b7280; margin-bottom: 3px;">Threat Load</div>
+                            <div style="font-size: 28px; font-weight: bold; color: #dc2626;">${threatLoad}</div>
+                            <div style="font-size: 11px; color: #6b7280; margin-top: 3px;">Dysregulated</div>
+                        </div>
+                        <div style="background: #dbeafe; padding: 9px; border-radius: 5px; text-align: center;">
+                            <div style="font-size: 12px; color: #6b7280; margin-bottom: 3px;">Neutral Areas</div>
+                            <div style="font-size: 28px; font-weight: bold; color: #3b82f6;">${neutralCount}</div>
+                            <div style="font-size: 11px; color: #6b7280; margin-top: 3px;">Regulated</div>
+                        </div>
+                        <div style="background: #d1fae5; padding: 9px; border-radius: 5px; text-align: center;">
+                            <div style="font-size: 12px; color: #6b7280; margin-bottom: 3px;">Opportunity Load</div>
+                            <div style="font-size: 28px; font-weight: bold; color: #16a34a;">${opportunityLoad}</div>
+                            <div style="font-size: 11px; color: #6b7280; margin-top: 3px;">Enthusiasm/Fun</div>
+                        </div>
+                    </div>
+                    <div class="status-box" style="background: ${status.color}; border-color: ${status.border}; color: ${status.textColor};">
+                        <span class="status-icon">${status.icon}</span>
+                        <span style="font-weight: 600;">${status.text}</span>
+                    </div>
+                    ` : ''}
+                </div>
+
                 <div class="card" style="border: 2px solid #16a34a;">
-                    <h2>💾 Save Entry</h2>
-                    <div class="subtitle" style="margin-bottom: 12px;">Saves to your browser (private to your account)</div>
+                    <h2>💾 Save Current Entry</h2>
+                    <div class="subtitle" style="margin-bottom: 12px;">Save a timestamped snapshot of all current ratings to Google Sheets</div>
                     
                     ${state.saveError ? `<div class="error-message">${state.saveError}</div>` : ''}
                     
-                    <button class="btn btn-success" onclick="saveEntry()">Save Entry to Browser</button>
+                    <button class="btn btn-success" onclick="saveEntry()">Save Entry</button>
                 </div>
 
                 <div class="card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <h2 style="margin: 0;">Recent Entries: ${state.entries.length}</h2>
-                        <div style="display: flex; gap: 8px;">
-                            <button class="btn" style="background: #3b82f6; color: white;" onclick="copyEntries()" ${state.entries.length === 0 ? 'disabled' : ''}>📋 Copy</button>
-                            <button class="btn" style="background: #dc2626; color: white;" onclick="clearEntries()" ${state.entries.length === 0 ? 'disabled' : ''}>🗑️ Clear</button>
-                        </div>
+                        <h2 style="margin: 0;">Saved Entries: ${state.entries.length}</h2>
+                        <button class="btn" style="background: #3b82f6; color: white;" onclick="copyEntries()" ${state.entries.length === 0 ? 'disabled style="background: #d1d5db; cursor: not-allowed;"' : ''}>📋 Copy All</button>
                     </div>
                     
-                    ${state.entries.length === 0 ? '<div style="text-align: center; padding: 36px 0; color: #6b7280;">No entries yet</div>' : `
+                    ${state.entries.length === 0 ? '<div style="text-align: center; padding: 36px 0; color: #6b7280;">No saved entries yet</div>' : `
                         <div style="max-height: 450px; overflow-y: auto;">
-                            ${state.entries.slice(0, 10).map((e, index) => `
+                            ${state.entries.map(e => {
+                                const config = e.lifeAreasConfig || state.lifeAreasConfig;
+                                const types = e.ambientTypes || state.ambientTypes;
+                                return `
                                 <div class="entry-item">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px;">
-                                        <div class="entry-timestamp">
-                                            ${new Date(e.timestamp).toLocaleString()}
-                                        </div>
-                                        <button onclick="deleteEntry(${index})" 
-                                                style="padding: 4px 8px; background: #dc2626; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;"
-                                                onmouseover="this.style.background='#991b1b'" 
-                                                onmouseout="this.style.background='#dc2626'">
-                                            🗑️ Delete
-                                        </button>
+                                    <div class="entry-timestamp">
+                                        ${new Date(e.timestamp).toLocaleString()}
                                     </div>
                                     
                                     <div class="entry-section">
-                                        <div class="entry-section-title">Loads</div>
-                                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+                                        <div class="entry-section-title">System Loads</div>
+                                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 6px;">
                                             <div style="background: #fee2e2; padding: 6px; border-radius: 4px; text-align: center;">
                                                 <div style="font-size: 10px; color: #6b7280;">Threat</div>
                                                 <div style="font-size: 18px; font-weight: bold; color: #dc2626;">${e.threatLoad || 0}</div>
@@ -1451,18 +132,43 @@
                                                 <div style="font-size: 18px; font-weight: bold; color: #3b82f6;">${e.neutralCount || 0}</div>
                                             </div>
                                             <div style="background: #d1fae5; padding: 6px; border-radius: 4px; text-align: center;">
-                                                <div style="font-size: 10px; color: #6b7280;">Opp</div>
+                                                <div style="font-size: 10px; color: #6b7280;">Opportunity</div>
                                                 <div style="font-size: 18px; font-weight: bold; color: #16a34a;">${e.opportunityLoad || 0}</div>
                                             </div>
                                         </div>
                                     </div>
 
+                                    <div class="entry-section">
+                                        <div class="entry-section-title">Life Areas (Total: ${e.lifeTotal})</div>
+                                        <div class="entry-life-areas">
+                                            ${config.map(c => {
+                                                const value = -(e.lifeAreas[c.key] || 0);
+                                                return `<div>${c.label}: <strong>${value}</strong></div>`;
+                                            }).join('')}
+                                        </div>
+                                    </div>
+
+                                    <div class="entry-section">
+                                        <div class="entry-section-title">Internal Experiences</div>
+                                        ${e.ambient.filter(a => a.value !== 0).length === 0 ? 
+                                            '<div style="font-style: italic; color: #6b7280; font-size: 12px;">No internal experiences recorded</div>' :
+                                            e.ambient.filter(a => a.value !== 0).map((a, i) => {
+                                                return `
+                                                <div class="entry-ambient">
+                                                    <div class="entry-ambient-header">[${a.value}/15] - ${getTypeLabel(a.type, types)}</div>
+                                                    <div class="entry-ambient-note">"${a.note}"</div>
+                                                </div>
+                                            `;
+                                            }).join('')
+                                        }
+                                    </div>
+
                                     <div class="entry-total">
-                                        Total: ${e.total} (${e.pct}%)
+                                        Total Load: ${e.total} (${e.pct}%)
                                     </div>
                                 </div>
-                            `).join('')}
-                            ${state.entries.length > 10 ? `<div style="text-align: center; color: #6b7280; padding: 10px; font-size: 13px;">Showing 10 of ${state.entries.length} entries</div>` : ''}
+                            `;
+                            }).join('')}
                         </div>
                     `}
                 </div>
@@ -1472,6 +178,10 @@
             
             setTimeout(() => updateVisualization(threatLoad, opportunityLoad, neutralCount), 0);
         }
+
+        // Initialize and render
+        initializeState();
+        render();
     </script>
 </body>
 </html>
