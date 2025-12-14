@@ -8,6 +8,7 @@
    <!-- Firebase SDK -->
    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
    
    <script>
        // Firebase configuration
@@ -24,6 +25,10 @@
        // Initialize Firebase
        firebase.initializeApp(firebaseConfig);
        const auth = firebase.auth();
+       const db = firebase.firestore();
+       
+       // Make db available globally
+       window.db = db;
 
        // Auth state listener
        auth.onAuthStateChanged(user => {
@@ -35,7 +40,7 @@
                document.getElementById('userEmail').textContent = user.email;
                window.currentUser = user;
                loadState();
-               render();
+               loadFromFirestore().then(() => render());
            } else {
                document.getElementById('authContainer').style.display = 'block';
                document.getElementById('app').style.display = 'none';
@@ -56,15 +61,70 @@
    
    <div id="authContainer" class="auth-container">
        <div class="auth-title">Offload</div>
-       <div class="subtitle" style="text-align: center; margin-bottom: 20px;">Sign in to save your data privately in your browser</div>
+       <div class="subtitle" style="text-align: center; margin-bottom: 20px;">Sign in to save your data to the cloud</div>
        <div id="authMessage" class="auth-message"></div>
        <input type="email" id="emailInput" class="auth-input" placeholder="Email" autocomplete="email">
        <input type="password" id="passwordInput" class="auth-input" placeholder="Password (min 6 characters)" autocomplete="current-password">
        <button class="auth-btn" id="signInBtn" onclick="handleSignIn()">Sign In</button>
        <button class="auth-btn" id="createAccountBtn" onclick="handleCreateAccount()">Create Account</button>
    </div>
+
    <div id="introModal" class="modal-overlay" onclick="if(event.target === this) closeIntroModal()">
        <div class="modal-content">
            <button class="modal-close" onclick="closeIntroModal()">×</button>
            <h2 style="margin-bottom: 16px; color: #111827;">Welcome to Offload</h2>
-           <div id="introModal_content" contenteditable="true" style="color: #374151; line-height: 1.6; margin-bottom: 16px; padding: 12px; border: 2px dashed #d1d5db; border-radius: 8px; outline
+           <div id="introModal_content" contenteditable="true" style="color: #374151; line-height: 1.6; margin-bottom: 16px; padding: 12px; border: 2px dashed #d1d5db; border-radius: 8px; outline: none;">
+               <p style="margin-bottom: 12px;">This self help tool is heavily based on a concept called the Window of Tolerance. Which says that our nervous systems basically have limits as to how much internal information can be safely processed in a given amount of time.</p>
+               <p style="margin-bottom: 12px;">This tool helps me tune into the quieter parts of my intuition that know how to keep me from overworking myself. It helps me understand how much internal and external things are affecting my nervous system at any given time.</p>
+           </div>
+           <div style="text-align: center; margin-top: 16px;">
+               <button onclick="saveAllModalContent(['introModal']);" style="padding: 10px 20px; background: #16a34a; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">💾 Save Changes</button>
+           </div>
+       </div>
+   </div>
+
+   <div id="infoModal1" class="modal-overlay" onclick="if(event.target === this) closeInfoModal('infoModal1')">
+       <div class="modal-content">
+           <button class="modal-close" onclick="closeInfoModal('infoModal1')">×</button>
+           <h2 style="margin-bottom: 16px; color: #111827;">Where to Start - Info</h2>
+           <div id="infoModal1_content" contenteditable="true" style="color: #374151; line-height: 1.6; padding: 12px; border: 2px dashed #d1d5db; border-radius: 8px; min-height: 100px; outline: none;">
+               <p style="margin-bottom: 12px;">Information about where to start will go here. Click to edit this text.</p>
+           </div>
+           <div style="text-align: center; margin-top: 16px;">
+               <button onclick="saveAllModalContent(['infoModal1']);" style="padding: 10px 20px; background: #16a34a; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">💾 Save Changes</button>
+           </div>
+       </div>
+   </div>
+
+   <div id="infoModal2" class="modal-overlay" onclick="if(event.target === this) closeInfoModal('infoModal2')">
+       <div class="modal-content">
+           <button class="modal-close" onclick="closeInfoModal('infoModal2')">×</button>
+           <h2 style="margin-bottom: 16px; color: #111827;">Window of Tolerance - Info</h2>
+           <div id="infoModal2_content" contenteditable="true" style="color: #374151; line-height: 1.6; padding: 12px; border: 2px dashed #d1d5db; border-radius: 8px; min-height: 100px; outline: none;">
+               <p style="margin-bottom: 12px;">Information about the Window of Tolerance visualization will go here. Click to edit this text.</p>
+           </div>
+           <div style="text-align: center; margin-top: 16px;">
+               <button onclick="saveAllModalContent(['infoModal2']);" style="padding: 10px 20px; background: #16a34a; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">💾 Save Changes</button>
+           </div>
+       </div>
+   </div>
+
+   <div id="infoModal3" class="modal-overlay" onclick="if(event.target === this) closeInfoModal('infoModal3')">
+       <div class="modal-content">
+           <button class="modal-close" onclick="closeInfoModal('infoModal3')">×</button>
+           <h2 style="margin-bottom: 16px; color: #111827;">Current Entry - Info</h2>
+           <div id="infoModal3_content" contenteditable="true" style="color: #374151; line-height: 1.6; padding: 12px; border: 2px dashed #d1d5db; border-radius: 8px; min-height: 100px; outline: none;">
+               <p style="margin-bottom: 12px;">Information about saving current entries will go here. Click to edit this text.</p>
+           </div>
+           <div style="text-align: center; margin-top: 16px;">
+               <button onclick="saveAllModalContent(['infoModal3']);" style="padding: 10px 20px; background: #16a34a; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">💾 Save Changes</button>
+           </div>
+       </div>
+   </div>
+
+   <div class="container" id="app"></div>
+
+   <script src="script.js"></script>
+   <script src="render.js"></script>
+</body>
+</html>
