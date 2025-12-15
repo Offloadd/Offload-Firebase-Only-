@@ -476,11 +476,7 @@ function render() {
         '</div>' +
 
         '<div class="card">' +
-            '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">' +
-                '<h2 style="margin: 0;">Saved Entries: ' + state.entries.length + '</h2>' +
-                '<button class="btn" style="background: #3b82f6; color: white;" onclick="copyEntries()" ' + (state.entries.length === 0 ? 'disabled style="background: #d1d5db; cursor: not-allowed;"' : '') + '>📋 Copy All</button>' +
-            '</div>' +
-            (state.entries.length === 0 ? '<div style="text-align: center; padding: 36px 0; color: #6b7280;">No saved entries yet</div>' : '') +
+            '<div id="entriesContainer"></div>' +
         '</div>';
 
     document.getElementById('app').innerHTML = html;
@@ -489,4 +485,5 @@ function render() {
     const opportunityLoad = getOpportunityLoad();
     const regulatedLoad = getRegulatedLoad();
     setTimeout(() => updateVisualization(threatLoad, opportunityLoad, regulatedLoad), 0);
+    displayEntries();
 }
